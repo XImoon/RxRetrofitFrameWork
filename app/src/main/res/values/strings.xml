@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">RxRetrofitFrameWork</string>
+    <string name="connect_time_out">网络出错，请稍后重试</string>
+</resources>
