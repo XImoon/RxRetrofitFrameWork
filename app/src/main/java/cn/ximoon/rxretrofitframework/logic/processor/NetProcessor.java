@@ -10,6 +10,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -241,7 +243,11 @@ public class NetProcessor<T> {
         Set<String> set = mQueryMap.keySet();
         StringBuilder postBuilder = new StringBuilder();
         for (String key : set) {
-            postBuilder.append("&").append(key).append("=").append(mPostMap.get(key));
+            try {
+                postBuilder.append("&").append(key).append("=").append(URLEncoder.encode(mPostMap.get(key), "UTF-8"));
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
         }
         postBuilder.deleteCharAt(0);
         return postBuilder.toString();
