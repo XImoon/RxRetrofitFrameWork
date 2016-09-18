@@ -89,8 +89,6 @@ public class NetProcessor<T> {
 
     public NetProcessor onMethodType(@MethodType int methodType) {
         this.mMethodType = methodType;
-//        mQueryMap.put(MeilaResource.CLIENT_ID_NAME, MeilaResource.getUniqueId());
-//        mQueryMap.put(MeilaResource.VERSION_NAME, MeilaResource.getApplicationVersionCode());
         return this;
     }
 
