@@ -16,12 +16,12 @@ public class UserBeanModel {
         Map<String, String> params = new HashMap<>();
         params.put("name", "username");
         params.put("psw", "userpsw");
-        return NetProcessor.get()
-                .onCallback(callback)
-                .onRetry(true)
-                .onClazz(UserBean.class)
-                .onUrl("/get/user")
-                .onQueryMap(params)
-                .excute();
+        return new NetProcessor<UserBean>()
+            .onCallback(callback)
+            .onRetry(true)
+            .onClazz(UserBean.class)
+            .onUrl("/get/user")
+            .onQueryMap(params)
+            .get();
     }
 }

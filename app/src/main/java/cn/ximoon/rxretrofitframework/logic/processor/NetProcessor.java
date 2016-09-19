@@ -6,9 +6,6 @@ import android.util.Log;
 
 import com.alibaba.fastjson.JSON;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -54,20 +51,20 @@ public class NetProcessor<T> {
     private NetServer mServer;
     private static final String TAG = "NetWorkProcessor";
 
+    public NetProcessor(){
+        mQueryMap = new HashMap<>();
+        mServer = Controller.getInstance().getmNetProxy().getNetServer();
+    }
+
     public static NetProcessor get() {
         NetProcessor processor = new NetProcessor();
-        processor.mQueryMap = new HashMap<>();
-        processor.mPostMap = new HashMap<>();
-        processor.mServer = Controller.getInstance().getmNetProxy().getNetServer();
         processor.mMethodType = MethodType.METHOD_GET;
         return processor;
     }
 
     public static NetProcessor post() {
         NetProcessor processor = new NetProcessor();
-        processor.mQueryMap = new HashMap<>();
         processor.mPostMap = new HashMap<>();
-        processor.mServer = Controller.getInstance().getmNetProxy().getNetServer();
         processor.mMethodType = MethodType.METHOD_POST;
         return processor;
     }
@@ -131,13 +128,6 @@ public class NetProcessor<T> {
                 try {
                     String strJSON = responseBody.string();
                     BaseServiceResult baseServiceResult = JSON.parseObject(strJSON, BaseServiceResult.class);
-                    if (baseServiceResult.data != null){
-                        if (baseServiceResult.data instanceof JSONObject){
-                            baseServiceResult.data = JSON.parseObject(strJSON, mClazz);
-                        }else if (baseServiceResult.data instanceof JSONArray){
-                            baseServiceResult.data = JSON.parseArray(strJSON, mClazz);
-                        }
-                    }
                     subscriber.onNext(baseServiceResult);
                     subscriber.onCompleted();
                 } catch (Exception e) {
@@ -224,6 +214,9 @@ public class NetProcessor<T> {
     }
 
     private String getQuertString(){
+        if (mQueryMap == null){
+            return "";
+        }
         List<QueryString> list = new ArrayList<>();
         QueryString query = null;
         Set<String> set = mQueryMap.keySet();
@@ -245,7 +238,10 @@ public class NetProcessor<T> {
     }
 
     private String getPostString(){
-        Set<String> set = mQueryMap.keySet();
+        if (mPostMap == null){
+            return "";
+        }
+        Set<String> set = mPostMap.keySet();
         StringBuilder postBuilder = new StringBuilder();
         for (String key : set) {
             try {
