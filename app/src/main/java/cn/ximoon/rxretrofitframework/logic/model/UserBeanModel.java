@@ -19,6 +19,7 @@ public class UserBeanModel {
         return NetProcessor.<UserBean>get()
             .onCallback(callback)
             .onRetry(true)
+            .onClazz(UserBean.class)
             .onUrl("/get/user")
             .onQueryMap(params)
             .get();
