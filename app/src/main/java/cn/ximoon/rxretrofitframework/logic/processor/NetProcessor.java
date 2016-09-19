@@ -25,6 +25,7 @@ import cn.ximoon.rxretrofitframework.core.server.NetServer;
 import cn.ximoon.rxretrofitframework.logic.Controller;
 import cn.ximoon.rxretrofitframework.logic.listener.ErrorCode;
 import okhttp3.ResponseBody;
+import retrofit2.Call;
 import rx.Observable;
 import rx.Subscriber;
 import rx.android.schedulers.AndroidSchedulers;
@@ -116,7 +117,7 @@ public class NetProcessor<T> {
         Observable.create(new Observable.OnSubscribe<BaseServiceResult<T>>() {
             @Override
             public void call(Subscriber<? super BaseServiceResult<T>> subscriber) {
-                ResponseBody responseBody = null;
+                Call<ResponseBody> responseBody = null;
                 switch (mMethodType){
                     case MethodType.METHOD_GET:
                         responseBody = mServer.getRequest(mUrl, mQueryMap);
@@ -126,7 +127,7 @@ public class NetProcessor<T> {
                         break;
                 }
                 try {
-                    String strJSON = responseBody.string();
+                    String strJSON = responseBody.execute().body().string();
                     BaseServiceResult baseServiceResult = JSON.parseObject(strJSON, BaseServiceResult.class);
                     subscriber.onNext(baseServiceResult);
                     subscriber.onCompleted();

@@ -3,6 +3,7 @@ package cn.ximoon.rxretrofitframework.core.server;
 import java.util.Map;
 
 import okhttp3.ResponseBody;
+import retrofit2.Call;
 import retrofit2.http.FieldMap;
 import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
@@ -16,9 +17,9 @@ import retrofit2.http.Url;
 public interface NetServer {
 
     @GET
-    ResponseBody getRequest(@Url String url, @QueryMap Map<String, String> map);
+    Call<ResponseBody> getRequest(@Url String url, @QueryMap Map<String, String> map);
 
     @FormUrlEncoded
     @POST
-    ResponseBody postRequest(@Url String url, @QueryMap Map<String, String> queryMap, @FieldMap Map<String, String> postMap);
+    Call<ResponseBody> postRequest(@Url String url, @QueryMap Map<String, String> queryMap, @FieldMap Map<String, String> postMap);
 }
