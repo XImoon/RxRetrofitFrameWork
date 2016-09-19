@@ -16,7 +16,7 @@ public class UserBeanModel {
         Map<String, String> params = new HashMap<>();
         params.put("name", "username");
         params.put("psw", "userpsw");
-        return new NetProcessor<UserBean>()
+        return NetProcessor.<UserBean>get()
             .onCallback(callback)
             .onRetry(true)
             .onUrl("/get/user")

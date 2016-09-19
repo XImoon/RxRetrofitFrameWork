@@ -5,6 +5,8 @@ import android.support.annotation.IntDef;
 import android.util.Log;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -45,24 +47,35 @@ public class NetProcessor<T> {
     private Map<String, String> mQueryMap;
     private Map<String, String> mPostMap;
     private String mUrl;
+    private Class<T> mClazz;
     private @MethodType int mMethodType;
     private boolean mNeedRetry = true;
     private Subscriber<BaseServiceResult<T>> mSubscriber;
     private NetServer mServer;
     private static final String TAG = "NetWorkProcessor";
 
-    public NetProcessor(){
+    public static <T> NetProcessor<T> get(){
+        NetProcessor<T> netProcessor = new NetProcessor<T>();
+        return netProcessor;
+    }
+
+    public static <T> NetProcessor<T> post(){
+        NetProcessor<T> netProcessor = new NetProcessor<T>();
+        netProcessor.mPostMap = new HashMap<String, String>();
+        return netProcessor;
+    }
+
+    private NetProcessor(){
         mQueryMap = new HashMap<>();
         mServer = Controller.getInstance().getmNetProxy().getNetServer();
     }
 
-
-    public NetProcessor putParam(String key, String value) {
+    public NetProcessor<T> putParam(String key, String value) {
         mQueryMap.put(key, value);
         return this;
     }
 
-    public NetProcessor postParam(String key, String value){
+    public NetProcessor<T> postParam(String key, String value){
         if (mPostMap == null){
             synchronized (this){
                 mPostMap = new HashMap<String, String>();
@@ -72,44 +85,39 @@ public class NetProcessor<T> {
         return this;
     }
 
-    public NetProcessor onQueryMap(Map<String, String> queryMap) {
+    public NetProcessor<T> onQueryMap(Map<String, String> queryMap) {
         this.mQueryMap.putAll(queryMap);
         return this;
     }
 
-    public NetProcessor onPostMap(Map<String, String> postMap) {
+    public NetProcessor<T> onPostMap(Map<String, String> postMap) {
         if (mPostMap == null){
             mPostMap.putAll(postMap);
         }
         return this;
     }
 
-    public NetProcessor onUrl(String url) {
+    public NetProcessor<T> onUrl(String url) {
         this.mUrl = url;
         return this;
     }
 
-    public NetProcessor onCallback(NetResultCallback<T> callback) {
+    public NetProcessor<T> onCallback(NetResultCallback<T> callback) {
         this.mCallback = callback;
         return this;
     }
 
-    public NetProcessor onRetry(boolean needRetry){
+    public NetProcessor<T> onClazz(Class<T> clazz){
+        this.mClazz = clazz;
+        return this;
+    }
+
+    public NetProcessor<T> onRetry(boolean needRetry){
         this.mNeedRetry = needRetry;
         return this;
     }
 
-    public NetProcessor get(){
-        this.mMethodType = MethodType.METHOD_GET;
-        return this.excute();
-    }
-
-    public NetProcessor post(){
-        this.mMethodType = MethodType.METHOD_POST;
-        return this.excute();
-    }
-
-    private NetProcessor excute() {
+    private NetProcessor<T> excute() {
         mCallback.onStart();
         Observable.create(new Observable.OnSubscribe<BaseServiceResult<T>>() {
             @Override
@@ -125,7 +133,15 @@ public class NetProcessor<T> {
                 }
                 try {
                     String strJSON = responseBody.execute().body().string();
-                    BaseServiceResult baseServiceResult = JSON.parseObject(strJSON, BaseServiceResult.class);
+                    BaseServiceResult<T> baseServiceResult = JSON.parseObject(strJSON, BaseServiceResult.class);
+                    baseServiceResult = JSON.<BaseServiceResult<T>>parseObject(strJSON, mClazz);
+                    if (baseServiceResult.data != null) {
+                        if (baseServiceResult.data instanceof JSONObject) {
+                            baseServiceResult.data = JSON.parseObject(((JSONObject) baseServiceResult.data).toJSONString(), mClazz);
+                        } else if (baseServiceResult.data instanceof JSONArray) {
+                            baseServiceResult.data = (T) JSON.parseArray(((JSONArray) baseServiceResult.data).toJSONString(), mClazz);
+                        }
+                    }
                     subscriber.onNext(baseServiceResult);
                     subscriber.onCompleted();
                 } catch (Exception e) {
