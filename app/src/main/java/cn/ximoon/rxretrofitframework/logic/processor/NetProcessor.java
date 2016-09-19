@@ -133,8 +133,7 @@ public class NetProcessor<T> {
                 }
                 try {
                     String strJSON = responseBody.execute().body().string();
-                    BaseServiceResult<T> baseServiceResult = JSON.parseObject(strJSON, BaseServiceResult.class);
-                    baseServiceResult = JSON.<BaseServiceResult<T>>parseObject(strJSON, mClazz);
+                    BaseServiceResult<T> baseServiceResult = JSON.<BaseServiceResult<T>>parseObject(strJSON, BaseServiceResult.class);
                     if (baseServiceResult.data != null) {
                         if (baseServiceResult.data instanceof JSONObject) {
                             baseServiceResult.data = JSON.parseObject(((JSONObject) baseServiceResult.data).toJSONString(), mClazz);
