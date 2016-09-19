@@ -20,7 +20,6 @@ public class UserBeanModel {
                 .onCallback(callback)
                 .onRetry(true)
                 .onClazz(UserBean.class)
-                .onMethodType(NetProcessor.MethodType.METHOD_GET)
                 .onUrl("/get/user")
                 .onQueryMap(params)
                 .excute();
