@@ -117,7 +117,7 @@ public class NetProcessor<T> {
         return this;
     }
 
-    private NetProcessor<T> excute() {
+    public NetProcessor<T> excute() {
         mCallback.onStart();
         Observable.create(new Observable.OnSubscribe<BaseServiceResult<T>>() {
             @Override

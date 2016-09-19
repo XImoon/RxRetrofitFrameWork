@@ -22,6 +22,6 @@ public class UserBeanModel {
             .onClazz(UserBean.class)
             .onUrl("/get/user")
             .onQueryMap(params)
-            .get();
+            .excute();
     }
 }
