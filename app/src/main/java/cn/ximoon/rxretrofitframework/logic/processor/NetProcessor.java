@@ -59,6 +59,16 @@ public class NetProcessor<T> {
         processor.mQueryMap = new HashMap<>();
         processor.mPostMap = new HashMap<>();
         processor.mServer = Controller.getInstance().getmNetProxy().getNetServer();
+        processor.mMethodType = MethodType.METHOD_GET;
+        return processor;
+    }
+
+    public static NetProcessor post() {
+        NetProcessor processor = new NetProcessor();
+        processor.mQueryMap = new HashMap<>();
+        processor.mPostMap = new HashMap<>();
+        processor.mServer = Controller.getInstance().getmNetProxy().getNetServer();
+        processor.mMethodType = MethodType.METHOD_POST;
         return processor;
     }
 
@@ -86,11 +96,6 @@ public class NetProcessor<T> {
 
     public NetProcessor onUrl(String url) {
         this.mUrl = url;
-        return this;
-    }
-
-    public NetProcessor onMethodType(@MethodType int methodType) {
-        this.mMethodType = methodType;
         return this;
     }
 
