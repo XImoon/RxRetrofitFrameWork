@@ -52,7 +52,7 @@ public class NetProcessor<T> {
     private boolean mNeedRetry = true;
     private Subscriber<BaseServiceResult<T>> mSubscriber;
     private NetServer mServer;
-    private static final String TAG = "NetWorkProcessor";
+    private static final String TAG = "NetProcessor";
 
     public static <T> NetProcessor<T> get(){
         NetProcessor<T> netProcessor = new NetProcessor<T>();
