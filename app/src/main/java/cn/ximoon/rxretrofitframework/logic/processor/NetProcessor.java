@@ -45,7 +45,6 @@ public class NetProcessor<T> {
     private Map<String, String> mQueryMap;
     private Map<String, String> mPostMap;
     private String mUrl;
-    private Class<T> mClazz;
     private @MethodType int mMethodType;
     private boolean mNeedRetry = true;
     private Subscriber<BaseServiceResult<T>> mSubscriber;
@@ -57,48 +56,36 @@ public class NetProcessor<T> {
         mServer = Controller.getInstance().getmNetProxy().getNetServer();
     }
 
-    public static NetProcessor get() {
-        NetProcessor processor = new NetProcessor();
-        processor.mMethodType = MethodType.METHOD_GET;
-        return processor;
-    }
-
-    public static NetProcessor post() {
-        NetProcessor processor = new NetProcessor();
-        processor.mPostMap = new HashMap<>();
-        processor.mMethodType = MethodType.METHOD_POST;
-        return processor;
-    }
 
     public NetProcessor putParam(String key, String value) {
-        if (mQueryMap == null) {
-            mQueryMap = new HashMap<>();
-        }
         mQueryMap.put(key, value);
         return this;
     }
 
-    public NetProcessor onQueryMap(Map<String, String> queryMap) {
-        if (queryMap != null) {
-            this.mQueryMap.putAll(queryMap);
+    public NetProcessor postParam(String key, String value){
+        if (mPostMap == null){
+            synchronized (this){
+                mPostMap = new HashMap<String, String>();
+            }
         }
+        mPostMap.put(key, value);
+        return this;
+    }
+
+    public NetProcessor onQueryMap(Map<String, String> queryMap) {
+        this.mQueryMap.putAll(queryMap);
         return this;
     }
 
     public NetProcessor onPostMap(Map<String, String> postMap) {
-        if (postMap != null) {
-            this.mPostMap = postMap;
+        if (mPostMap == null){
+            mPostMap.putAll(postMap);
         }
         return this;
     }
 
     public NetProcessor onUrl(String url) {
         this.mUrl = url;
-        return this;
-    }
-
-    public NetProcessor onClazz(Class<T> clazz) {
-        this.mClazz = clazz;
         return this;
     }
 
@@ -112,7 +99,17 @@ public class NetProcessor<T> {
         return this;
     }
 
-    public NetProcessor excute() {
+    public NetProcessor get(){
+        this.mMethodType = MethodType.METHOD_GET;
+        return this.excute();
+    }
+
+    public NetProcessor post(){
+        this.mMethodType = MethodType.METHOD_POST;
+        return this.excute();
+    }
+
+    private NetProcessor excute() {
         mCallback.onStart();
         Observable.create(new Observable.OnSubscribe<BaseServiceResult<T>>() {
             @Override
