@@ -35,11 +35,9 @@ import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
 
+
 /**
- * @Author: Zora
- * @Email: zorabai@meilapp.com
- * @CreateTime: 2016/8/9 16:45
- * @Description: 网络处理器，对响应进行相应处理
+ * Created by XImoon on 16/9/14.
  */
 public class NetProcessor<T> {
 

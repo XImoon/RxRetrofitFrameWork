@@ -21,7 +21,7 @@ public class HttpManager {
     public HttpManager(String url, Interceptor interceptor, Interceptor netInterceptor){
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
         builder.cache(new Cache(new File(NetApplication.getInstance().getApplicationContext().getCacheDir(), "caches"), 1024 * 1024 * 100));
-        mHttpClient = builder.addInterceptor(interceptor).addNetworkInterceptor(netInterceptor).build();
+        mHttpClient = builder.addInterceptor(interceptor).addNetworkInterceptor(netInterceptor).retryOnConnectionFailure(true).build();
         mRetrofit = new Retrofit.Builder()
                 .baseUrl(url)
                 .client(mHttpClient)
