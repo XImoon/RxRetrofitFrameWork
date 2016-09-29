@@ -19,7 +19,7 @@ import okio.Okio;
 public class NetProxy {
 
     private HttpManager mManger;
-    private String BASE_URL = "";
+    private String BASE_URL = "http://apis.baidu.com";
 
     public NetProxy(){
         mManger = new HttpManager(BASE_URL, new Interceptor() {
@@ -33,7 +33,7 @@ public class NetProxy {
                 // Buffer buffer = new Buffer();
                 // builder.body().writeTo(buffer);
                 // String requestContent = buffer.readUtf8();  // 用于post请求获取form表单内容
-                builder.addHeader("key", "value");
+                builder.addHeader("apikey", "");
                 builder.addHeader("Accept-Encoding", "gzip");
                 Request request = builder.build();
                 return chain.proceed(request);

@@ -20,12 +20,13 @@ import java.util.Set;
 
 import cn.ximoon.rxretrofitframework.NetApplication;
 import cn.ximoon.rxretrofitframework.R;
-import cn.ximoon.rxretrofitframework.bean.BaseServiceResult;
 import cn.ximoon.rxretrofitframework.bean.QueryString;
-import cn.ximoon.rxretrofitframework.core.callback.NetResultCallback;
 import cn.ximoon.rxretrofitframework.core.server.NetServer;
 import cn.ximoon.rxretrofitframework.logic.Controller;
 import cn.ximoon.rxretrofitframework.logic.listener.ErrorCode;
+import cn.ximoon.rxretrofitframework.logic.listener.NetServiceResult;
+import cn.ximoon.rxretrofitframework.logic.listener.ServerResultCallbaclk;
+import okhttp3.CacheControl;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import rx.Observable;
@@ -41,25 +42,28 @@ import rx.schedulers.Schedulers;
  */
 public class NetProcessor<T> {
 
-    private NetResultCallback<T> mCallback;
+    private ServerResultCallbaclk<T> mCallback;
     private Map<String, String> mQueryMap;
     private Map<String, String> mPostMap;
     private String mUrl;
     private Class<T> mClazz;
     private @MethodType int mMethodType;
     private boolean mNeedRetry = true;
-    private Subscriber<BaseServiceResult<T>> mSubscriber;
+    private Subscriber<NetServiceResult<T>> mSubscriber;
+    private boolean isNeedCache;
     private NetServer mServer;
     private static final String TAG = "NetProcessor";
 
     public static <T> NetProcessor<T> get(){
         NetProcessor<T> netProcessor = new NetProcessor<T>();
+        netProcessor.mMethodType = MethodType.METHOD_GET;
         return netProcessor;
     }
 
     public static <T> NetProcessor<T> post(){
         NetProcessor<T> netProcessor = new NetProcessor<T>();
         netProcessor.mPostMap = new HashMap<String, String>();
+        netProcessor.mMethodType = MethodType.METHOD_POST;
         return netProcessor;
     }
 
@@ -100,7 +104,7 @@ public class NetProcessor<T> {
         return this;
     }
 
-    public NetProcessor<T> onCallback(NetResultCallback<T> callback) {
+    public NetProcessor<T> onCallback(ServerResultCallbaclk<T> callback) {
         this.mCallback = callback;
         return this;
     }
@@ -115,31 +119,46 @@ public class NetProcessor<T> {
         return this;
     }
 
+    public NetProcessor<T> onCached(boolean needCache){
+        this.isNeedCache = needCache;
+        return this;
+    }
+
     public NetProcessor<T> excute() {
         mCallback.onStart();
-        Observable.create(new Observable.OnSubscribe<BaseServiceResult<T>>() {
+        Observable.create(new Observable.OnSubscribe<NetServiceResult<T>>() {
+
             @Override
-            public void call(Subscriber<? super BaseServiceResult<T>> subscriber) {
+            public void call(Subscriber<? super NetServiceResult<T>> subscriber) {
                 Call<ResponseBody> responseBody = null;
-                switch (mMethodType){
+                String strJSON = "";
+                if (isNeedCache) {
+                    switch (mMethodType) {
+                        case MethodType.METHOD_GET:
+                            responseBody = mServer.getRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mQueryMap);
+                            break;
+                        case MethodType.METHOD_POST:
+                            responseBody = mServer.postRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mPostMap, mQueryMap);
+                            break;
+                    }
+                    try {
+                        strJSON = responseBody.execute().body().string();
+                        subscriber.onNext(parserJson(strJSON, true));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                switch (mMethodType) {
                     case MethodType.METHOD_GET:
-                        responseBody = mServer.getRequest(mUrl, mQueryMap);
+                        responseBody = mServer.getRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mQueryMap);
                         break;
                     case MethodType.METHOD_POST:
-                        responseBody = mServer.postRequest(mUrl, mPostMap, mQueryMap);
+                        responseBody = mServer.postRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mPostMap, mQueryMap);
                         break;
                 }
                 try {
-                    String strJSON = responseBody.execute().body().string();
-                    BaseServiceResult<T> baseServiceResult = JSON.<BaseServiceResult<T>>parseObject(strJSON, BaseServiceResult.class);
-                    if (baseServiceResult.data != null) {
-                        if (baseServiceResult.data instanceof JSONObject) {
-                            baseServiceResult.data = JSON.parseObject(((JSONObject) baseServiceResult.data).toJSONString(), mClazz);
-                        } else if (baseServiceResult.data instanceof JSONArray) {
-                            baseServiceResult.data = (T) JSON.parseArray(((JSONArray) baseServiceResult.data).toJSONString(), mClazz);
-                        }
-                    }
-                    subscriber.onNext(baseServiceResult);
+                    strJSON = responseBody.execute().body().string();
+                    subscriber.onNext(parserJson(strJSON, false));
                     subscriber.onCompleted();
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -177,8 +196,8 @@ public class NetProcessor<T> {
         }
     }
 
-    private Subscriber<BaseServiceResult<T>> getSubscrobe(){
-        mSubscriber = new Subscriber<BaseServiceResult<T>>() {
+    private Subscriber<NetServiceResult<T>> getSubscrobe(){
+        mSubscriber = new Subscriber<NetServiceResult<T>>() {
 
             @Override
             public void onStart() {
@@ -198,17 +217,21 @@ public class NetProcessor<T> {
             }
 
             @Override
-            public void onNext(BaseServiceResult<T> tBaseServiceResult) {
+            public void onNext(NetServiceResult<T> tNetServiceResult) {
                 if (mCallback != null) {
-                    if (tBaseServiceResult == null){
+                    if (tNetServiceResult == null){
                         mCallback.onFailed(ErrorCode.CODE_RESPONSE_EMPTY, NetApplication.getInstance().getString(R.string.connect_time_out));
                         return;
                     }
-                    Log.i(TAG, "onNext: " + tBaseServiceResult.toString());
-                    if (tBaseServiceResult.ret == ErrorCode.CODE_OK) {
-                        mCallback.onSuccess(tBaseServiceResult.data);
+                    Log.i(TAG, "onNext: " + tNetServiceResult.toString());
+                    if (tNetServiceResult.errNum == ErrorCode.CODE_OK) {
+                        if (tNetServiceResult.isFromCache){
+                            mCallback.onCached(tNetServiceResult.retData);
+                        } else {
+                            mCallback.onSuccess(tNetServiceResult.retData);
+                        }
                     }else{
-                        mCallback.onFailed(tBaseServiceResult.ret, tBaseServiceResult.msg);
+                        mCallback.onFailed(tNetServiceResult.errNum, tNetServiceResult.errMsg);
                     }
                 }
             }
@@ -263,6 +286,19 @@ public class NetProcessor<T> {
         }
         postBuilder.deleteCharAt(0);
         return postBuilder.toString();
+    }
+
+    private NetServiceResult<T> parserJson(String strJSON, boolean isFromCache){
+        NetServiceResult<T> netServiceResult = JSON.<NetServiceResult<T>>parseObject(strJSON, NetServiceResult.class);
+        if (netServiceResult.retData != null) {
+            if (netServiceResult.retData instanceof JSONObject) {
+                netServiceResult.retData = JSON.parseObject(((JSONObject) netServiceResult.retData).toJSONString(), mClazz);
+            } else if (netServiceResult.retData instanceof JSONArray) {
+                netServiceResult.retData = (T) JSON.parseArray(((JSONArray) netServiceResult.retData).toJSONString(), mClazz);
+            }
+        }
+        netServiceResult.isFromCache = isFromCache;
+        return netServiceResult;
     }
 
 }

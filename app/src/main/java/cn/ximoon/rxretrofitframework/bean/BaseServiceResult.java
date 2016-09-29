@@ -5,16 +5,16 @@ package cn.ximoon.rxretrofitframework.bean;
  */
 public class BaseServiceResult<T> {
 
-    public int ret;
-    public String msg;
-    public T data;
+    public int errNum;
+    public String errMsg;
+    public T retData;
 
     @Override
     public String toString() {
         return "BaseServiceResult{" +
-                "ret=" + ret +
-                ", msg='" + msg + '\'' +
-                ", data=" + data +
+                "errNum=" + errNum +
+                ", errMsg='" + errMsg + '\'' +
+                ", retData=" + retData +
                 '}';
     }
 }

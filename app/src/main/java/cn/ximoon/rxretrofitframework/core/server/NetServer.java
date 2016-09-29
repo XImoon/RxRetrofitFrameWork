@@ -7,6 +7,7 @@ import retrofit2.Call;
 import retrofit2.http.FieldMap;
 import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
+import retrofit2.http.Header;
 import retrofit2.http.POST;
 import retrofit2.http.QueryMap;
 import retrofit2.http.Url;
@@ -17,9 +18,9 @@ import retrofit2.http.Url;
 public interface NetServer {
 
     @GET
-    Call<ResponseBody> getRequest(@Url String url, @QueryMap Map<String, String> map);
+    Call<ResponseBody> getRequest(@Header("Cache-Control") String cacheControl, @Url String url, @QueryMap Map<String, String> map);
 
     @FormUrlEncoded
     @POST
-    Call<ResponseBody> postRequest(@Url String url, @QueryMap Map<String, String> queryMap, @FieldMap Map<String, String> postMap);
+    Call<ResponseBody> postRequest(@Header("Cache-Control") String cacheControl, @Url String url, @QueryMap Map<String, String> queryMap, @FieldMap Map<String, String> postMap);
 }

@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import cn.ximoon.rxretrofitframework.bean.UserBean;
-import cn.ximoon.rxretrofitframework.core.callback.NetResultCallback;
+import cn.ximoon.rxretrofitframework.logic.listener.ServerResultCallbaclk;
 import cn.ximoon.rxretrofitframework.logic.processor.NetProcessor;
 
 /**
@@ -12,7 +12,7 @@ import cn.ximoon.rxretrofitframework.logic.processor.NetProcessor;
  */
 public class UserBeanModel {
 
-    public NetProcessor getUser(NetResultCallback<UserBean> callback){
+    public NetProcessor getUser(ServerResultCallbaclk<UserBean> callback){
         Map<String, String> params = new HashMap<>();
         params.put("name", "username");
         params.put("psw", "userpsw");
