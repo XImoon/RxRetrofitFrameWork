@@ -54,12 +54,22 @@ public class NetProcessor<T> {
     private NetServer mServer;
     private static final String TAG = "NetProcessor";
 
+    /**
+     * 获取GET请求方式的处理器
+     * @param <T> 所需类型
+     * @return
+     */
     public static <T> NetProcessor<T> get(){
         NetProcessor<T> netProcessor = new NetProcessor<T>();
         netProcessor.mMethodType = MethodType.METHOD_GET;
         return netProcessor;
     }
 
+    /**
+     * 获取POST请求方式的处理器
+     * @param <T> 所需类型
+     * @return
+     */
     public static <T> NetProcessor<T> post(){
         NetProcessor<T> netProcessor = new NetProcessor<T>();
         netProcessor.mPostMap = new HashMap<String, String>();
@@ -72,11 +82,23 @@ public class NetProcessor<T> {
         mServer = Controller.getInstance().getmNetProxy().getNetServer();
     }
 
+    /**
+     * 添加GET请求参数内容
+     * @param key 参数名称
+     * @param value 参数内容
+     * @return
+     */
     public NetProcessor<T> putParam(String key, String value) {
         mQueryMap.put(key, value);
         return this;
     }
 
+    /**
+     * 添加POST请求参数内容
+     * @param key 参数名称
+     * @param value 参数内容
+     * @return
+     */
     public NetProcessor<T> postParam(String key, String value){
         if (mPostMap == null){
             synchronized (this){
@@ -87,11 +109,21 @@ public class NetProcessor<T> {
         return this;
     }
 
+    /**
+     * 设置GET请求方式的参数
+     * @param queryMap GET请求的参数内容
+     * @return
+     */
     public NetProcessor<T> onQueryMap(Map<String, String> queryMap) {
         this.mQueryMap.putAll(queryMap);
         return this;
     }
 
+    /**
+     * 设置POST请求的参数
+     * @param postMap POST请求的表单内容
+     * @return
+     */
     public NetProcessor<T> onPostMap(Map<String, String> postMap) {
         if (mPostMap == null){
             mPostMap.putAll(postMap);
@@ -99,31 +131,60 @@ public class NetProcessor<T> {
         return this;
     }
 
+    /**
+     * 设置请求地址
+     * @param url 请求地址
+     * @return
+     */
     public NetProcessor<T> onUrl(String url) {
         this.mUrl = url;
         return this;
     }
 
+    /**
+     * 设置请求响应回调监听
+     * @param callback 监听器
+     * @return
+     */
     public NetProcessor<T> onCallback(ServerResultCallbaclk<T> callback) {
         this.mCallback = callback;
         return this;
     }
 
+    /**
+     * 设置解析类型
+     * @param clazz 类（LIST<T>即传递T的类型）
+     * @return
+     */
     public NetProcessor<T> onClazz(Class<T> clazz){
         this.mClazz = clazz;
         return this;
     }
 
+    /**
+     * 是否需要重试策略
+     * @param needRetry TRUE即需要，FALSE即不需要
+     * @return
+     */
     public NetProcessor<T> onRetry(boolean needRetry){
         this.mNeedRetry = needRetry;
         return this;
     }
 
+    /**
+     * 是否需要返回缓存结果
+     * @param needCache TRUE即需要，FALSE即不需要
+     * @return
+     */
     public NetProcessor<T> onCached(boolean needCache){
         this.isNeedCache = needCache;
         return this;
     }
 
+    /**
+     * 执行网络请求
+     * @return  处理器
+     */
     public NetProcessor<T> excute() {
         mCallback.onStart();
         Observable.create(new Observable.OnSubscribe<NetServiceResult<T>>() {
@@ -133,14 +194,7 @@ public class NetProcessor<T> {
                 Call<ResponseBody> responseBody = null;
                 String strJSON = "";
                 if (isNeedCache) {
-                    switch (mMethodType) {
-                        case MethodType.METHOD_GET:
-                            responseBody = mServer.getRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mQueryMap);
-                            break;
-                        case MethodType.METHOD_POST:
-                            responseBody = mServer.postRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mPostMap, mQueryMap);
-                            break;
-                    }
+                    responseBody = requestApi(responseBody);
                     try {
                         strJSON = responseBody.execute().body().string();
                         subscriber.onNext(parserJson(strJSON, true));
@@ -148,14 +202,7 @@ public class NetProcessor<T> {
                         e.printStackTrace();
                     }
                 }
-                switch (mMethodType) {
-                    case MethodType.METHOD_GET:
-                        responseBody = mServer.getRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mQueryMap);
-                        break;
-                    case MethodType.METHOD_POST:
-                        responseBody = mServer.postRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mPostMap, mQueryMap);
-                        break;
-                }
+                responseBody = requestApi(responseBody);
                 try {
                     strJSON = responseBody.execute().body().string();
                     subscriber.onNext(parserJson(strJSON, false));
@@ -189,6 +236,26 @@ public class NetProcessor<T> {
         return this;
     }
 
+    /**
+     * 请求网络
+     * @param responseBody
+     * @return
+     */
+    private Call<ResponseBody> requestApi(Call<ResponseBody> responseBody) {
+        switch (mMethodType) {
+            case MethodType.METHOD_GET:
+                responseBody = mServer.getRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mQueryMap);
+                break;
+            case MethodType.METHOD_POST:
+                responseBody = mServer.postRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mPostMap, mQueryMap);
+                break;
+        }
+        return responseBody;
+    }
+
+    /**
+     * 取消请求
+     */
     public void cancel(){
         if (mSubscriber != null && !mSubscriber.isUnsubscribed()){
             mSubscriber.unsubscribe();
@@ -196,6 +263,10 @@ public class NetProcessor<T> {
         }
     }
 
+    /**
+     * 创建观察者
+     * @return 新的观察者
+     */
     private Subscriber<NetServiceResult<T>> getSubscrobe(){
         mSubscriber = new Subscriber<NetServiceResult<T>>() {
 
@@ -239,6 +310,9 @@ public class NetProcessor<T> {
         return mSubscriber;
     }
 
+    /**
+     * 请求方式
+     */
     @IntDef({MethodType.METHOD_GET, MethodType.METHOD_POST})
     public @interface MethodType {
         // GET请求
@@ -247,6 +321,10 @@ public class NetProcessor<T> {
         int METHOD_POST = 1;
     }
 
+    /**
+     * GET请求的参数拼接
+     * @return 参数URL表示结果
+     */
     private String getQuertString(){
         if (mQueryMap == null){
             return "";
@@ -271,6 +349,10 @@ public class NetProcessor<T> {
         return queryBuilder.toString();
     }
 
+    /**
+     * POST请求的参数拼接
+     * @return 参数URL表示结果
+     */
     private String getPostString(){
         if (mPostMap == null){
             return "";
@@ -288,6 +370,12 @@ public class NetProcessor<T> {
         return postBuilder.toString();
     }
 
+    /**
+     * JSON解析
+     * @param strJSON   JSON字符串
+     * @param isFromCache   是否缓存结果
+     * @return  协议结果
+     */
     private NetServiceResult<T> parserJson(String strJSON, boolean isFromCache){
         NetServiceResult<T> netServiceResult = JSON.<NetServiceResult<T>>parseObject(strJSON, NetServiceResult.class);
         if (netServiceResult.retData != null) {
