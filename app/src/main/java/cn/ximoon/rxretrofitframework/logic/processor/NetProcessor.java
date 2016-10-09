@@ -182,7 +182,7 @@ public class NetProcessor<T> {
     }
 
     /**
-     * 执行网络请求
+     * 执行API请求
      * @return  处理器
      */
     public NetProcessor<T> excute() {
