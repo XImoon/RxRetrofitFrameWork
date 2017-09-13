@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import cn.ximoon.rxretrofitframework.core.manager.HttpManager;
 import cn.ximoon.rxretrofitframework.core.server.NetServer;
+import okhttp3.CacheControl;
 import okhttp3.Interceptor;
 import okhttp3.MediaType;
 import okhttp3.Request;
@@ -19,7 +20,7 @@ import okio.Okio;
 public class NetProxy {
 
     private HttpManager mManger;
-    private String BASE_URL = "http://apis.baidu.com";
+    private String BASE_URL = "http://api.baidu.com";
 
     public NetProxy(){
         mManger = new HttpManager(BASE_URL, new Interceptor() {
@@ -57,6 +58,8 @@ public class NetProxy {
                     ResponseBody body = ResponseBody.create(MediaType.parse("application/json"), temStr);
                     builder.body(body);
                 }
+                builder.removeHeader("Pragma");
+                builder.header("Cache-Control","public , only-if-cached");
                 return builder.build();
             }
         });

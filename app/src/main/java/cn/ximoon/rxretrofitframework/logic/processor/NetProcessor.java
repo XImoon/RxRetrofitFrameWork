@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import cn.ximoon.rxretrofitframework.NetApplication;
 import cn.ximoon.rxretrofitframework.R;
@@ -26,14 +27,19 @@ import cn.ximoon.rxretrofitframework.logic.Controller;
 import cn.ximoon.rxretrofitframework.logic.listener.ErrorCode;
 import cn.ximoon.rxretrofitframework.logic.listener.NetServiceResult;
 import cn.ximoon.rxretrofitframework.logic.listener.ServerResultCallbaclk;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.ObservableSource;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.CacheControl;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Func1;
-import rx.schedulers.Schedulers;
 
 
 
@@ -49,10 +55,12 @@ public class NetProcessor<T> {
     private Class<T> mClazz;
     private @MethodType int mMethodType;
     private boolean mNeedRetry = true;
-    private Subscriber<NetServiceResult<T>> mSubscriber;
+    private Observer<NetServiceResult<T>> mSubscriber;
+    private Disposable mDisposable;
     private boolean isNeedCache;
     private NetServer mServer;
     private static final String TAG = "NetProcessor";
+    private final int retryDelayMillis = 100;
 
     /**
      * 获取GET请求方式的处理器
@@ -187,17 +195,16 @@ public class NetProcessor<T> {
      */
     public NetProcessor<T> excute() {
         mCallback.onStart();
-        Observable.create(new Observable.OnSubscribe<NetServiceResult<T>>() {
-
+        Observable.create(new ObservableOnSubscribe<NetServiceResult<T>>() {
             @Override
-            public void call(Subscriber<? super NetServiceResult<T>> subscriber) {
+            public void subscribe(ObservableEmitter<NetServiceResult<T>> emitter) throws Exception {
                 Call<ResponseBody> responseBody = null;
                 String strJSON = "";
                 if (isNeedCache) {
-                    responseBody = requestApi(responseBody);
+                    responseBody = requestCache(responseBody);
                     try {
                         strJSON = responseBody.execute().body().string();
-                        subscriber.onNext(parserJson(strJSON, true));
+                        emitter.onNext(parserJson(strJSON, true));
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -205,34 +212,35 @@ public class NetProcessor<T> {
                 responseBody = requestApi(responseBody);
                 try {
                     strJSON = responseBody.execute().body().string();
-                    subscriber.onNext(parserJson(strJSON, false));
-                    subscriber.onCompleted();
+                    emitter.onNext(parserJson(strJSON, false));
+                    emitter.onComplete();
                 } catch (Exception e) {
                     e.printStackTrace();
-                    subscriber.onError(e);
+                    emitter.onError(e);
+                    if (!mNeedRetry){
+                        emitter.onComplete();
+                    }
                 }
             }
-        }).subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .retryWhen(new Func1<Observable<? extends Throwable>, Observable<?>>() {
+        }).retryWhen(new Function<Observable<Throwable>, ObservableSource<?>>() {
+            @Override
+            public ObservableSource<?> apply(@NonNull Observable<Throwable> throwableObservable) throws Exception {
+                return throwableObservable.flatMap(new Function<Throwable, ObservableSource<?>>() {
                     @Override
-                    public Observable<?> call(Observable<? extends Throwable> observable) {
-                        return observable.flatMap(new Func1<Throwable, Observable<?>>() {
-                            @Override public Observable<?> call(Throwable error) {
-                                if (mNeedRetry) {
-                                    mNeedRetry = false;
-                                    // For IOExceptions, we  retry
-                                    if (error instanceof IOException) {
-                                        return Observable.just(null);
-                                    }
-                                }
-                                // For anything else, don't retry
-                                return Observable.error(error);
-                            }
-                        });
+                    public ObservableSource<?> apply(@NonNull Throwable throwable) throws Exception {
+                        if (mNeedRetry && throwable instanceof IOException) {
+                            mNeedRetry = false;
+                            return Observable.timer(retryDelayMillis, TimeUnit.MILLISECONDS);
+                        }
+                        // For anything else, don't retry
+                        return Observable.error(throwable);
                     }
-                })
-                .subscribe(getSubscrobe());
+                });
+            }
+        })
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(getSubscrobe());
         return this;
     }
 
@@ -241,7 +249,7 @@ public class NetProcessor<T> {
      * @param responseBody
      * @return
      */
-    private Call<ResponseBody> requestApi(Call<ResponseBody> responseBody) {
+    private Call<ResponseBody> requestCache(Call<ResponseBody> responseBody) {
         switch (mMethodType) {
             case MethodType.METHOD_GET:
                 responseBody = mServer.getRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mQueryMap);
@@ -254,11 +262,29 @@ public class NetProcessor<T> {
     }
 
     /**
+     * 请求网络
+     * @param responseBody
+     * @return
+     */
+    private Call<ResponseBody> requestApi(Call<ResponseBody> responseBody) {
+        switch (mMethodType) {
+            case MethodType.METHOD_GET:
+                responseBody = mServer.getRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mQueryMap);
+                break;
+            case MethodType.METHOD_POST:
+                responseBody = mServer.postRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mPostMap, mQueryMap);
+                break;
+        }
+        return responseBody;
+    }
+
+
+    /**
      * 取消请求
      */
     public void cancel(){
-        if (mSubscriber != null && !mSubscriber.isUnsubscribed()){
-            mSubscriber.unsubscribe();
+        if (mDisposable != null && !mDisposable.isDisposed()){
+            mDisposable.dispose();
             mCallback.cancel();
         }
     }
@@ -267,24 +293,12 @@ public class NetProcessor<T> {
      * 创建观察者
      * @return 新的观察者
      */
-    private Subscriber<NetServiceResult<T>> getSubscrobe(){
-        mSubscriber = new Subscriber<NetServiceResult<T>>() {
+    private Observer<NetServiceResult<T>> getSubscrobe(){
+        mSubscriber = new Observer<NetServiceResult<T>>() {
 
             @Override
-            public void onStart() {
-                super.onStart();
-            }
-
-            @Override
-            public void onCompleted() {
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                if (mCallback != null) {
-                    mCallback.onFailed(ErrorCode.CODE_TIME_OUT, NetApplication.getInstance().getString(R.string.connect_time_out));
-                    Log.e(TAG, "onError: " + e.getMessage());
-                }
+            public void onSubscribe(Disposable d) {
+                mDisposable = d;
             }
 
             @Override
@@ -305,6 +319,19 @@ public class NetProcessor<T> {
                         mCallback.onFailed(tNetServiceResult.errNum, tNetServiceResult.errMsg);
                     }
                 }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                if (mCallback != null) {
+                    mCallback.onFailed(ErrorCode.CODE_TIME_OUT, NetApplication.getInstance().getString(R.string.connect_time_out));
+                    Log.e(TAG, "onError: " + e.getMessage());
+                }
+            }
+
+            @Override
+            public void onComplete() {
+
             }
         };
         return mSubscriber;

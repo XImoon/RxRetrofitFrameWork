@@ -19,6 +19,7 @@ public class IPBeanModel {
                 .onClazz(IPBean.class)
                 .onQueryMap(params)
                 .onCached(true)
+                .onRetry(false)
                 .onUrl("/apistore/iplookupservice/iplookup")
                 .onCallback(callback)
                 .excute();
