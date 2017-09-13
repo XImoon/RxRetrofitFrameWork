@@ -3,6 +3,7 @@ package cn.ximoon.rxretrofitframework.core.manager;
 import java.io.File;
 
 import cn.ximoon.rxretrofitframework.NetApplication;
+import cn.ximoon.rxretrofitframework.core.convert.XMLConvertFactory;
 import cn.ximoon.rxretrofitframework.core.server.NetServer;
 import okhttp3.Cache;
 import okhttp3.Interceptor;
@@ -24,6 +25,7 @@ public class HttpManager {
         mHttpClient = builder.addInterceptor(interceptor).addNetworkInterceptor(netInterceptor).retryOnConnectionFailure(true).build();
         mRetrofit = new Retrofit.Builder()
                 .baseUrl(url)
+                .addConverterFactory(XMLConvertFactory.create())
                 .client(mHttpClient)
                 .build();
         mNetServer = mRetrofit.create(NetServer.class);

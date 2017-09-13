@@ -1,4 +1,4 @@
-package cn.ximoon.rxretrofitframework.bean;
+package cn.ximoon.rxretrofitframework.base.bean;
 
 /**
  * Created by XImoon on 16/9/14.

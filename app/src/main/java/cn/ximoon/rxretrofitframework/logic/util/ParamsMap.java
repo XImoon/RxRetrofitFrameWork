@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
-import cn.ximoon.rxretrofitframework.bean.QueryString;
+import cn.ximoon.rxretrofitframework.base.bean.QueryString;
 
 /**
  * Created by XImoon on 16/9/26.

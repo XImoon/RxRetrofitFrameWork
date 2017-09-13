@@ -1,4 +1,4 @@
-package cn.ximoon.rxretrofitframework.logic.listener;
+package cn.ximoon.rxretrofitframework.core.callback;
 
 /**
  * Created by XImoon on 16/9/14.

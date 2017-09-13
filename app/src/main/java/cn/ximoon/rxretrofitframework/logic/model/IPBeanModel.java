@@ -3,7 +3,7 @@ package cn.ximoon.rxretrofitframework.logic.model;
 import java.util.HashMap;
 import java.util.Map;
 
-import cn.ximoon.rxretrofitframework.bean.IPBean;
+import cn.ximoon.rxretrofitframework.base.bean.IPBean;
 import cn.ximoon.rxretrofitframework.logic.listener.ServerResultCallbaclk;
 import cn.ximoon.rxretrofitframework.logic.processor.NetProcessor;
 
@@ -12,10 +12,10 @@ import cn.ximoon.rxretrofitframework.logic.processor.NetProcessor;
  */
 public class IPBeanModel {
 
-    public static NetProcessor<IPBean> queryIp(String ip, ServerResultCallbaclk<IPBean> callback){
+    public static NetProcessor<Void, IPBean> queryIp(String ip, ServerResultCallbaclk<IPBean> callback){
         Map<String, String> params = new HashMap<>();
         params.put("ip", ip);
-        return NetProcessor.<IPBean>get()
+        return NetProcessor.<Void, IPBean>get()
                 .onClazz(IPBean.class)
                 .onQueryMap(params)
                 .onCached(true)
@@ -23,6 +23,5 @@ public class IPBeanModel {
                 .onUrl("/apistore/iplookupservice/iplookup")
                 .onCallback(callback)
                 .excute();
-
     }
 }

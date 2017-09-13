@@ -1,4 +1,4 @@
-package cn.ximoon.rxretrofitframework.bean;
+package cn.ximoon.rxretrofitframework.base.bean;
 
 import java.io.Serializable;
 

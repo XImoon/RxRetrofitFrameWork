@@ -4,7 +4,7 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
-import cn.ximoon.rxretrofitframework.bean.IPBean;
+import cn.ximoon.rxretrofitframework.base.bean.IPBean;
 import cn.ximoon.rxretrofitframework.logic.listener.ServerResultCallbaclk;
 import cn.ximoon.rxretrofitframework.logic.model.IPBeanModel;
 

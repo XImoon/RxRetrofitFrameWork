@@ -4,112 +4,109 @@ package cn.ximoon.rxretrofitframework.logic.processor;
 import android.support.annotation.IntDef;
 import android.util.Log;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-
+import java.io.IOError;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
-import cn.ximoon.rxretrofitframework.NetApplication;
 import cn.ximoon.rxretrofitframework.R;
-import cn.ximoon.rxretrofitframework.bean.QueryString;
+import cn.ximoon.rxretrofitframework.core.callback.ErrorCode;
 import cn.ximoon.rxretrofitframework.core.server.NetServer;
 import cn.ximoon.rxretrofitframework.logic.Controller;
-import cn.ximoon.rxretrofitframework.logic.listener.ErrorCode;
-import cn.ximoon.rxretrofitframework.logic.listener.NetServiceResult;
 import cn.ximoon.rxretrofitframework.logic.listener.ServerResultCallbaclk;
+import cn.ximoon.rxretrofitframework.logic.util.ApplicationUtil;
+import cn.ximoon.rxretrofitframework.logic.util.NetParserXMLUtil;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
-import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
-import okhttp3.CacheControl;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
-
 
 
 /**
  * Created by XImoon on 16/9/14.
  */
-public class NetProcessor<T> {
+public class NetProcessor<E,T> {
 
     private ServerResultCallbaclk<T> mCallback;
     private Map<String, String> mQueryMap;
     private Map<String, String> mPostMap;
+    private E mBody;
     private String mUrl;
     private Class<T> mClazz;
-    private @MethodType int mMethodType;
+    @MethodType
+    private int mMethodType;
     private boolean mNeedRetry = true;
-    private Observer<NetServiceResult<T>> mSubscriber;
+    private Observer<T> mSubscriber;
     private Disposable mDisposable;
     private boolean isNeedCache;
     private NetServer mServer;
     private static final String TAG = "NetProcessor";
-    private final int retryDelayMillis = 100;
 
     /**
      * 获取GET请求方式的处理器
-     * @param <T> 所需类型
+     *
+     * @param <E, T> E为请求参数对象类型，T为响应内容对象类型
      * @return
      */
-    public static <T> NetProcessor<T> get(){
-        NetProcessor<T> netProcessor = new NetProcessor<T>();
+    public static <E, T> NetProcessor<E, T> get() {
+        NetProcessor<E, T> netProcessor = new NetProcessor<E, T>();
         netProcessor.mMethodType = MethodType.METHOD_GET;
         return netProcessor;
     }
 
     /**
      * 获取POST请求方式的处理器
-     * @param <T> 所需类型
+     *
+     * @param <E, T> E为请求参数对象类型，T为响应内容对象类型
      * @return
      */
-    public static <T> NetProcessor<T> post(){
-        NetProcessor<T> netProcessor = new NetProcessor<T>();
+    public static <E, T> NetProcessor<E, T> post() {
+        NetProcessor<E, T> netProcessor = new NetProcessor<E, T>();
         netProcessor.mPostMap = new HashMap<String, String>();
         netProcessor.mMethodType = MethodType.METHOD_POST;
         return netProcessor;
     }
 
-    private NetProcessor(){
+    private NetProcessor() {
         mQueryMap = new HashMap<>();
         mServer = Controller.getInstance().getmNetProxy().getNetServer();
     }
 
     /**
      * 添加GET请求参数内容
-     * @param key 参数名称
+     *
+     * @param key   参数名称
      * @param value 参数内容
      * @return
      */
-    public NetProcessor<T> putParam(String key, String value) {
+    public NetProcessor<E, T> putParam(String key, String value) {
         mQueryMap.put(key, value);
+        return this;
+    }
+
+    public NetProcessor<E, T> putParam(E queryValue) {
+        mBody = queryValue;
         return this;
     }
 
     /**
      * 添加POST请求参数内容
-     * @param key 参数名称
+     *
+     * @param key   参数名称
      * @param value 参数内容
      * @return
      */
-    public NetProcessor<T> postParam(String key, String value){
-        if (mPostMap == null){
-            synchronized (this){
+    public NetProcessor<E, T> postParam(String key, String value) {
+        if (mPostMap == null) {
+            synchronized (this) {
                 mPostMap = new HashMap<String, String>();
             }
         }
@@ -119,21 +116,23 @@ public class NetProcessor<T> {
 
     /**
      * 设置GET请求方式的参数
+     *
      * @param queryMap GET请求的参数内容
      * @return
      */
-    public NetProcessor<T> onQueryMap(Map<String, String> queryMap) {
+    public NetProcessor<E, T> onQueryMap(Map<String, String> queryMap) {
         this.mQueryMap.putAll(queryMap);
         return this;
     }
 
     /**
      * 设置POST请求的参数
+     *
      * @param postMap POST请求的表单内容
      * @return
      */
-    public NetProcessor<T> onPostMap(Map<String, String> postMap) {
-        if (mPostMap == null){
+    public NetProcessor<E, T> onPostMap(Map<String, String> postMap) {
+        if (mPostMap == null) {
             mPostMap.putAll(postMap);
         }
         return this;
@@ -141,160 +140,128 @@ public class NetProcessor<T> {
 
     /**
      * 设置请求地址
+     *
      * @param url 请求地址
      * @return
      */
-    public NetProcessor<T> onUrl(String url) {
+    public NetProcessor<E, T> onUrl(String url) {
         this.mUrl = url;
         return this;
     }
 
     /**
      * 设置请求响应回调监听
+     *
      * @param callback 监听器
      * @return
      */
-    public NetProcessor<T> onCallback(ServerResultCallbaclk<T> callback) {
+    public NetProcessor<E, T> onCallback(ServerResultCallbaclk<T> callback) {
         this.mCallback = callback;
         return this;
     }
 
     /**
      * 设置解析类型
-     * @param clazz 类（LIST<T>即传递T的类型）
+     *
+     * @param clazz 类（LIST<E, T>即传递T的类型）
      * @return
      */
-    public NetProcessor<T> onClazz(Class<T> clazz){
+    public NetProcessor<E, T> onClazz(Class<T> clazz) {
         this.mClazz = clazz;
         return this;
     }
 
     /**
      * 是否需要重试策略
+     *
      * @param needRetry TRUE即需要，FALSE即不需要
      * @return
      */
-    public NetProcessor<T> onRetry(boolean needRetry){
+    public NetProcessor<E, T> onRetry(boolean needRetry) {
         this.mNeedRetry = needRetry;
         return this;
     }
 
     /**
      * 是否需要返回缓存结果
+     *
      * @param needCache TRUE即需要，FALSE即不需要
      * @return
      */
-    public NetProcessor<T> onCached(boolean needCache){
+    public NetProcessor<E, T> onCached(boolean needCache) {
         this.isNeedCache = needCache;
         return this;
     }
 
     /**
      * 执行API请求
-     * @return  处理器
+     *
+     * @return 处理器
      */
-    public NetProcessor<T> excute() {
+    public NetProcessor excute() {
         mCallback.onStart();
-        Observable.create(new ObservableOnSubscribe<NetServiceResult<T>>() {
+        Observable.create(new ObservableOnSubscribe<T>() {
             @Override
-            public void subscribe(ObservableEmitter<NetServiceResult<T>> emitter) throws Exception {
+            public void subscribe(ObservableEmitter<T> emitter) throws Exception {
                 Call<ResponseBody> responseBody = null;
-                String strJSON = "";
-                if (isNeedCache) {
-                    responseBody = requestCache(responseBody);
-                    try {
-                        strJSON = responseBody.execute().body().string();
-                        emitter.onNext(parserJson(strJSON, true));
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                responseBody = requestApi(responseBody);
-                try {
-                    strJSON = responseBody.execute().body().string();
-                    emitter.onNext(parserJson(strJSON, false));
-                    emitter.onComplete();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    emitter.onError(e);
-                    if (!mNeedRetry){
-                        emitter.onComplete();
-                    }
-                }
-            }
-        }).retryWhen(new Function<Observable<Throwable>, ObservableSource<?>>() {
-            @Override
-            public ObservableSource<?> apply(@NonNull Observable<Throwable> throwableObservable) throws Exception {
-                return throwableObservable.flatMap(new Function<Throwable, ObservableSource<?>>() {
-                    @Override
-                    public ObservableSource<?> apply(@NonNull Throwable throwable) throws Exception {
-                        if (mNeedRetry && throwable instanceof IOException) {
-                            mNeedRetry = false;
-                            return Observable.timer(retryDelayMillis, TimeUnit.MILLISECONDS);
+                switch (mMethodType) {
+                    case MethodType.METHOD_GET:
+                        if (null != mBody){
+                            responseBody = mServer.getRequest(mUrl, NetParserXMLUtil.convertString(mBody));
+                        }else {
+                            responseBody = mServer.getRequest(mUrl, mQueryMap);
                         }
-                        // For anything else, don't retry
-                        return Observable.error(throwable);
-                    }
-                });
+                        break;
+                    case MethodType.METHOD_POST:
+                        if (null != mBody){
+                            responseBody = mServer.postRequest(mUrl, mBody);
+                        }else {
+                            responseBody = mServer.postRequest(mUrl, mPostMap);
+                        }
+                        break;
+                }
+                T t = NetParserXMLUtil.parserT(mClazz, responseBody.execute().body());
+                if (null == t){
+                    emitter.onError(new IOError(new IOException("parser error")));
+                }else {
+                    emitter.onNext(t);
+                }
+                emitter.onComplete();
             }
         })
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(getSubscrobe());
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(getSubscrobeObserver());
         return this;
     }
 
     /**
      * 请求网络
+     *
      * @param responseBody
      * @return
      */
-    private Call<ResponseBody> requestCache(Call<ResponseBody> responseBody) {
-        switch (mMethodType) {
-            case MethodType.METHOD_GET:
-                responseBody = mServer.getRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mQueryMap);
-                break;
-            case MethodType.METHOD_POST:
-                responseBody = mServer.postRequest(CacheControl.FORCE_CACHE.toString(), mUrl, mPostMap, mQueryMap);
-                break;
-        }
+    private Call<T> requestApi(Call<T> responseBody) {
+
         return responseBody;
     }
-
-    /**
-     * 请求网络
-     * @param responseBody
-     * @return
-     */
-    private Call<ResponseBody> requestApi(Call<ResponseBody> responseBody) {
-        switch (mMethodType) {
-            case MethodType.METHOD_GET:
-                responseBody = mServer.getRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mQueryMap);
-                break;
-            case MethodType.METHOD_POST:
-                responseBody = mServer.postRequest(CacheControl.FORCE_NETWORK.toString(), mUrl, mPostMap, mQueryMap);
-                break;
-        }
-        return responseBody;
-    }
-
 
     /**
      * 取消请求
      */
-    public void cancel(){
-        if (mDisposable != null && !mDisposable.isDisposed()){
+    public void cancel() {
+        if (null != mDisposable && mDisposable.isDisposed()) {
             mDisposable.dispose();
-            mCallback.cancel();
         }
     }
 
     /**
      * 创建观察者
+     *
      * @return 新的观察者
      */
-    private Observer<NetServiceResult<T>> getSubscrobe(){
-        mSubscriber = new Observer<NetServiceResult<T>>() {
+    private Observer<T> getSubscrobeObserver() {
+        mSubscriber = new Observer<T>() {
 
             @Override
             public void onSubscribe(Disposable d) {
@@ -302,29 +269,19 @@ public class NetProcessor<T> {
             }
 
             @Override
-            public void onNext(NetServiceResult<T> tNetServiceResult) {
+            public void onNext(T result) {
+                if (mDisposable.isDisposed()) {
+                    return;
+                }
                 if (mCallback != null) {
-                    if (tNetServiceResult == null){
-                        mCallback.onFailed(ErrorCode.CODE_RESPONSE_EMPTY, NetApplication.getInstance().getString(R.string.connect_time_out));
-                        return;
-                    }
-                    Log.i(TAG, "onNext: " + tNetServiceResult.toString());
-                    if (tNetServiceResult.errNum == ErrorCode.CODE_OK) {
-                        if (tNetServiceResult.isFromCache){
-                            mCallback.onCached(tNetServiceResult.retData);
-                        } else {
-                            mCallback.onSuccess(tNetServiceResult.retData);
-                        }
-                    }else{
-                        mCallback.onFailed(tNetServiceResult.errNum, tNetServiceResult.errMsg);
-                    }
+                    mCallback.onSuccess(result);
                 }
             }
 
             @Override
             public void onError(Throwable e) {
                 if (mCallback != null) {
-                    mCallback.onFailed(ErrorCode.CODE_TIME_OUT, NetApplication.getInstance().getString(R.string.connect_time_out));
+                    mCallback.onFailed(ErrorCode.CODE_TIME_OUT, ApplicationUtil.getApplicationContext().getString(R.string.connect_time_out));
                     Log.e(TAG, "onError: " + e.getMessage());
                 }
             }
@@ -350,38 +307,29 @@ public class NetProcessor<T> {
 
     /**
      * GET请求的参数拼接
+     *
      * @return 参数URL表示结果
      */
-    private String getQuertString(){
-        if (mQueryMap == null){
-            return "";
-        }
-        List<QueryString> list = new ArrayList<>();
-        QueryString query = null;
-        Set<String> set = mQueryMap.keySet();
-        StringBuilder queryBuilder = new StringBuilder();
-        for (String key : set) {
-            query = new QueryString(key, mQueryMap.get(key));
-            list.add(query);
-        }
-        Collections.sort(list);
-        int size = list.size();
-        try {
-            for (int i = 0; i < size; i++) {
-                queryBuilder.append(list.get(i).toStringAddAnd( i == 0 ? false : true));
+    private String getQuertString() {
+        if (null != mQueryMap) {
+            Set<String> set = mQueryMap.keySet();
+            StringBuilder builder = new StringBuilder();
+            for (String key : set) {
+                builder.append("&").append(key).append("=").append(mQueryMap.get(key));
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+            builder.deleteCharAt(0).insert(0, "\\?");
+            return builder.toString();
         }
-        return queryBuilder.toString();
+        return "";
     }
 
     /**
      * POST请求的参数拼接
+     *
      * @return 参数URL表示结果
      */
-    private String getPostString(){
-        if (mPostMap == null){
+    private String getPostString() {
+        if (mPostMap == null) {
             return "";
         }
         Set<String> set = mPostMap.keySet();
@@ -396,24 +344,4 @@ public class NetProcessor<T> {
         postBuilder.deleteCharAt(0);
         return postBuilder.toString();
     }
-
-    /**
-     * JSON解析
-     * @param strJSON   JSON字符串
-     * @param isFromCache   是否缓存结果
-     * @return  协议结果
-     */
-    private NetServiceResult<T> parserJson(String strJSON, boolean isFromCache){
-        NetServiceResult<T> netServiceResult = JSON.<NetServiceResult<T>>parseObject(strJSON, NetServiceResult.class);
-        if (netServiceResult.retData != null) {
-            if (netServiceResult.retData instanceof JSONObject) {
-                netServiceResult.retData = JSON.parseObject(((JSONObject) netServiceResult.retData).toJSONString(), mClazz);
-            } else if (netServiceResult.retData instanceof JSONArray) {
-                netServiceResult.retData = (T) JSON.parseArray(((JSONArray) netServiceResult.retData).toJSONString(), mClazz);
-            }
-        }
-        netServiceResult.isFromCache = isFromCache;
-        return netServiceResult;
-    }
-
 }

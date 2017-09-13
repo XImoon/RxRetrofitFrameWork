@@ -1,6 +1,6 @@
 package cn.ximoon.rxretrofitframework.logic.listener;
 
-import cn.ximoon.rxretrofitframework.bean.BaseServiceResult;
+import cn.ximoon.rxretrofitframework.base.bean.BaseServiceResult;
 
 /**
  * Created by XImoon on 16/9/29.
