@@ -16,9 +16,9 @@ Otherwise you should choose a other framework or modify the framework obey your 
 
 This provide three way you can use:
 
-  1. rxjava 1.1.10 + retrofit 2.1.0 + JSON
-  2. rxjava 2.1.3 + retrofit 2.3.0 + JSON
-  3. rxjava 2.1.3 + retrofit 2.3.0 + xml
+  1. rxjava 1.1.10 + retrofit 2.1.0 + JSON      branch: dev-zora
+  2. rxjava 2.1.3 + retrofit 2.3.0 + JSON       branch: dev-new
+  3. rxjava 2.1.3 + retrofit 2.3.0 + xml        branch: dev-xml
   
   
 Each way, you should know these Java file:
